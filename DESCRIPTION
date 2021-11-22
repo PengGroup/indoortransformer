@@ -11,9 +11,9 @@ LazyData: true
 RoxygenNote: 7.1.2
 Imports: 
     ChemmineR,
+    rcdk, 
     dplyr,
     magrittr,
-    rcdk,
     rlang,
     stats, 
     stringr,

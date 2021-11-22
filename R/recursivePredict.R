@@ -1,7 +1,7 @@
 #' @title Recursive prediction of transformation products.
 #'
 #' @param SMI Character vector of length one containing a SMILES string.
-#' @param prods Empty four-column tibble in which to store results.
+#' @param prods Empty three-column tibble in which to store results.
 #' @param funGroups Character vector containing functional groups at which transformation reactions can occur.
 #' @param rxnList Character vector containing types of reactions to use for prediction.
 #' @param rxnSave Empty character vector for storing sequential reaction information.
@@ -21,11 +21,11 @@ recursive.Predict<-function(SMI, prods, funGroups, rxnList, rxnSave, savePoint, 
   if(length(rxnGroups)<1){
     return(NULL)
   }else{
-    prods_temp<-tibble(precID=NULL, Reactions=NULL, prodSMILES=NULL, skipCheck=NULL) #Creates final output table to store predicted transformation product information. This table will be returned at the end of this function.
-    prods_temp2<-tibble(precID=NULL, Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
-    prods_Cleave2 <- tibble(precID=NULL, Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
-    prods_Cleave1 <- tibble(precID=NULL, Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
-    prods_Cleave3 <- tibble(precID=NULL, Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
+    prods_temp<-tibble(Reactions=NULL, prodSMILES=NULL, skipCheck=NULL) #Creates final output table to store predicted transformation product information. This table will be returned at the end of this function.
+    prods_temp2<-tibble(Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
+    prods_Cleave2 <- tibble(Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
+    prods_Cleave1 <- tibble(Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
+    prods_Cleave3 <- tibble(Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
 
     for(j in 1:length(rxnGroups)){
 
@@ -46,7 +46,7 @@ recursive.Predict<-function(SMI, prods, funGroups, rxnList, rxnSave, savePoint, 
         rxnSave_current<-prod_new2$Reactions
         savePoint_current<-prod_new2$savePoint
 
-        prods_Cleave2 <- tibble(precID=NULL, Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
+        prods_Cleave2 <- tibble(Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
         prods_Cleave2 <- bind_rows(prods_Cleave2, prod_new2, recursive.Predict(prod_new2$prodSMILES[1], prods, funGroups, rxnList, rxnSave_current, savePoint_current, skipCheck))
         prods_Cleave2 <- filter(prods_Cleave2, !is.na(prodSMILES))
         skipCheck<-c(skipCheck, unlist(last(prods_Cleave2$skipCheck))) #Using the last row to extract SMILES to skip because the first row(s) will be NULL
@@ -55,7 +55,7 @@ recursive.Predict<-function(SMI, prods, funGroups, rxnList, rxnSave, savePoint, 
         rxnSave_current<-prod_new1$Reactions
         savePoint_current<-prod_new1$savePoint
 
-        prods_Cleave1 <- tibble(precID=NULL, Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
+        prods_Cleave1 <- tibble(Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
         prods_Cleave1 <- bind_rows(prods_Cleave1, prod_new1, recursive.Predict(prod_new1$prodSMILES[1], prods, funGroups, rxnList, rxnSave_current, savePoint_current, skipCheck))
         prods_Cleave1 <- filter(prods_Cleave1, !is.na(prodSMILES))
         skipCheck<-c(skipCheck, unlist(last(prods_Cleave1$skipCheck)))
@@ -68,7 +68,7 @@ recursive.Predict<-function(SMI, prods, funGroups, rxnList, rxnSave, savePoint, 
           rxnSave_current<-prod_new3$Reactions
           savePoint_current<-prod_new3$savePoint
 
-          prods_Cleave3 <- tibble(precID=NULL, Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
+          prods_Cleave3 <- tibble(Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
           prods_Cleave3 <- bind_rows(prods_Cleave3, prod_new3, recursive.Predict(prod_new3$prodSMILES[1], prods, funGroups, rxnList, rxnSave_current, savePoint_current, skipCheck))
           prods_Cleave3 <- filter(prods_Cleave3, !is.na(prodSMILES))
           skipCheck<-c(skipCheck, unlist(last(prods_Cleave3$skipCheck)))
@@ -84,7 +84,7 @@ recursive.Predict<-function(SMI, prods, funGroups, rxnList, rxnSave, savePoint, 
         skipCheck<-c(skipCheck, unlist(last(prods_temp$skipCheck)))
         skipCheck<-unique(skipCheck)
 
-        prods_temp2<-tibble(precID=NULL, Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
+        prods_temp2<-tibble(Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
         if(savePoint_current == TRUE){
           prods_temp2<-bind_rows(prods_temp2, prod_new, recursive.Predict(SMI, prods, funGroups, rxnList, rxnSave, savePoint_current, skipCheck))
           prods_temp2 <- filter(prods_temp2, !is.na(prodSMILES))
