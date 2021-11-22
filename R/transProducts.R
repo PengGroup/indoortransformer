@@ -5,7 +5,6 @@
 #' @importFrom magrittr %>%
 #' @importFrom tibble tibble
 #' @importFrom dplyr distinct mutate bind_rows select rowwise left_join
-#' @importFrom rcdk get.exact.mass parse.smiles get.xlogp
 #' @importFrom stats setNames
 #'
 #' @return A tibble containing precursor SMILES, product SMILES, list of sequential transformations, product ID#, exact product mass, calculated logP values, and predicted positive/negative fragment m/z for organophosphate ester products.
@@ -58,16 +57,16 @@ trans.Products<-function(smilesList){
   }else{
     prodTable_output <- prodTable_output %>%
       mutate(prodID = row_number()) %>%
-      rowwise() %>%
-      mutate(MW = get.exact.mass(parse.smiles(prodSMILES)[[1]]), xlogP = get.xlogp(parse.smiles(prodSMILES)[[1]]))
+      rowwise() #%>%
+#      mutate(MW = rcdk::get.exact.mass(rcdk::parse.smiles(prodSMILES)[[1]]), xlogP = rcdk::get.xlogp(rcdk::parse.smiles(prodSMILES)[[1]]))
   }
 
   fragments<-OPCproducts.Frag(prodTable_output$prodSMILES)
   prodTable_output <- prodTable_output %>%
     left_join(fragments, by = "prodSMILES") %>%
     rowwise() %>%
-    mutate(across(c(Reactions, mz_pos, mz_neg), ~paste(unlist(.), collapse = ','))) %>%
-    setNames(c("Precursor", "Reactions", "Product", "Product_ID", "MW", "xlogP", "Pos_Frag_mz", "Neg_Frag_mz"))
+    mutate(across(c(Reactions, mz_pos, mz_neg), ~paste(unlist(.), collapse = ','))) #%>%
+#    setNames(c("Precursor", "Reactions", "Product", "Product_ID", "MW", "xlogP", "Pos_Frag_mz", "Neg_Frag_mz"))
 
   return(prodTable_output)
 }
