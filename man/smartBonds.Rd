@@ -17,8 +17,3 @@ A named character vector.
 \description{
 Detects specific functional groups in a molecule (SMILES format) and returns a vector of functional group strings named with atom indices (Structure-Data Format). Faster and more lightweight than findBonds().
 }
-\examples{
-x <- "CCC=CCCO[P](OCCC)(=O)OCCCC"
-y <- c("C=C", "PR3", "P=S", "ester_PO")
-smartBonds(x, y)
-}

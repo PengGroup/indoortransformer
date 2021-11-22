@@ -6,12 +6,6 @@
 #' @param grps A predefined character vector of functional groups.
 #'
 #' @return A named character vector.
-#' @export
-#'
-#' @examples
-#' x <- "CCC=CCCO[P](OCCC)(=O)OCCCC"
-#' y <- c("C=C", "PR3", "P=S", "ester_PO")
-#' smartBonds(x, y)
 smartBonds<-function(smiles, grps){
 
   if(length(smiles) < 1){return(NULL)}
@@ -47,17 +41,16 @@ smartBonds<-function(smiles, grps){
 #'
 #' @description Detects specific functional groups in a molecule (SMILES format) and returns a table containing detailed SDF information. Slower than smartBonds(), but provides more detailed information.
 #'
-#'
-#' @param smiles A SMILES-formatted molecule string.
-#' @param targetGroup A predefined character vector of functional groups.
-#'
-#' @return A tibble containing bond block and atom block information for each functional group detected.
-#' @export
 #' @importFrom magrittr %>%
 #' @importFrom rlang .data
 #' @importFrom stringr str_detect str_split str_extract
 #' @importFrom tibble tibble as_tibble rownames_to_column
 #' @import dplyr
+#'
+#' @param smiles A SMILES-formatted molecule string.
+#' @param targetGroup A predefined character vector of functional groups.
+#'
+#' @return A tibble containing bond block and atom block information for each functional group detected.
 findBonds<-function(smiles, targetGroup) { #Function to find atom and bond row IDs containing desired functional group
 
   sdfList<-ChemmineR::smiles2sdf(smiles)
