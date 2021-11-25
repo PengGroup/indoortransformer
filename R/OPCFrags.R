@@ -9,7 +9,7 @@
 #'
 #' @return Tibble containing input SMILES and predicted positive/negative fragment m/z values for each.
 OPCproducts.Frag<-function(smilesList){
-
+  Reactions <- fragSMILES <- fragMass <- NULL
   funGroups <- "ester_PO"
   rxns <- "Hyd"
 
@@ -18,36 +18,32 @@ OPCproducts.Frag<-function(smilesList){
   for(i in 1:length(smilesList)){
 
     frags_temp<-tibble(Reactions = NULL, fragSMILES = NULL, skipCheck = NULL)
-    unfragmented<-tibble(fragSMILES = smilesList[i], fragSide = "unfrag")
 
     rxnSave<-NULL
     skipCheck<-NULL
     fragNew<-recursive.Frag(smilesList[i], frags_temp, funGroups, rxns, rxnSave, skipCheck)
 
     if(!is.null(fragNew)){
-
-      Omass<-iso_list$mass[7]
-      Hmass<-iso_list$mass[1]
-      Pmass<-iso_list$mass[30]
+      Omass<-15.994915
+      Hmass<-1.007825
+      Pmass<-30.973761
       emass<-0.000549
 
       fragNew <- fragNew %>%
         select(-c(Reactions, skipCheck)) %>%
-        bind_rows(unfragmented) %>%
         distinct(fragSMILES, .keep_all = TRUE) %>%
         rowwise() %>%
         mutate(fragMass = get.mol2formula(parse.smiles(fragSMILES)[[1]],charge=0)@mass) %>%
+        filter(fragMass <= get.mol2formula(parse.smiles(smilesList[i])[[1]],charge=0)@mass) %>%
         mutate(
           mz_pos = case_when(
             fragSide == "Rside" ~ list(fragMass-Omass-Hmass-emass),
             fragSide == "Pside" ~ list(c(fragMass+Hmass-emass, fragMass-Omass-Hmass-emass)),
-            fragSide == "unfrag" ~ list(fragMass+Hmass-emass),
             TRUE ~ list(NA)
           ),
           mz_neg = case_when(
             fragSide == "Rside" ~ list(c(fragMass-Hmass+emass, fragMass-(2*Hmass)+(2*Omass)+Pmass+emass)),
             fragSide == "Pside" ~ list(NA),
-            fragSide == "unfrag" ~ list(NA),
             TRUE ~ list(NA)
           )
         )
@@ -88,7 +84,7 @@ OPCproducts.Frag<-function(smilesList){
 #'
 #' @return Tibble containing fragment SMILES, list of sequential fragmentation reactions, and saved skipCheck strings.
 recursive.Frag<-function(SMI, prods, funGroups, rxnList, rxnSave, skipCheck){
-
+  fragSMILES <- NULL
   rxnGroups<-fragSites(SMI, funGroups)
 
   if(length(rxnGroups)<1){

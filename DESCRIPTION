@@ -13,12 +13,13 @@ Imports:
     ChemmineR,
     dplyr,
     magrittr,
+    rcdk,
+    rJava,
     rlang,
     stats, 
     stringr,
     tibble,
-    tidyr,
-    rcdk
+    tidyr
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

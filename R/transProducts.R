@@ -17,7 +17,7 @@
 #' }
 
 trans.Products<-function(smilesList){
-  prodSMILES <- prodID <- precID <- NULL #Global variables declaration
+  prodSMILES <- prodID <- precID <- Reactions <- mz_pos <- mz_neg <- NULL #Global variables declaration
   funGroups<-c("ester_PO", "P=S", "PR3", "C=C")
   rxns<-c("Oxi", "Hyd", "HOCl", "Ozo")
 
@@ -35,16 +35,17 @@ trans.Products<-function(smilesList){
     productsNew<-recursive.Predict(smilesList[i], prods_temp, funGroups, rxns, rxnSave, savePoint, skipCheck)
 
     if(!is.null(productsNew)){
-      print(paste(i,
-                  "out of",
-                  length(smilesList),
-                  "seed compounds.  There were",
-                  nrow(productsNew),
-                  "products predicted for this compound.", sep = " "))
 
       productsNew<-productsNew %>%
         distinct(prodSMILES, .keep_all = TRUE) %>%
         mutate(precSMILES = smilesList[i])
+
+      print(paste(i,
+                  "out of",
+                  length(smilesList),
+                  "seed compounds complete.  There were",
+                  nrow(productsNew),
+                  "products predicted for this compound.", sep = " "))
 
       prodTable_output<-prodTable_output %>%
         bind_rows(productRaw, productsNew) %>%

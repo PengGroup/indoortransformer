@@ -18,29 +18,24 @@ knitr::opts_chunk$set(
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of indoortransformer is to ...
+The *indoortransformer* package is designed to extend the functionality of existing commercial chemical databases by predicting likely indoor transformation products. Build 0.9.0 is currently designed for use only with organophosphorus compounds (OPCs).
 
 ## Installation
 
-You can install the released version of indoortransformer from [CRAN](https://CRAN.R-project.org) with:
-
-``` r
-install.packages("indoortransformer")
-```
-
-And the development version from [GitHub](https://github.com/) with:
+You can install the current version of indoortransformer from [GitHub](https://github.com/) with:
 
 ``` r
 # install.packages("devtools")
 devtools::install_github("toxicpeng/indoortransformer")
 ```
+
 ## Example
 
-This is a basic example which shows you how to solve a common problem:
+The *trans.Products()* function accepts a character vector of molecules in SMILES (Simplified Molecular-Input Line-Entry System) format. For example: 
 
-```{r example}
-#library(indoortransformer)
-## basic example code
+``` r
+# x <- c("CO[P](=S)(OC)Oc1ccc(cc1)[S](=O)(=O)N(C)C","CO[P](=O)(OC)OC=C(Cl)Cl")
+# trans.Products(x)
 ```
 
 
