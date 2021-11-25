@@ -4,7 +4,7 @@
 #'
 #' @importFrom magrittr %>%
 #' @importFrom tibble tibble
-#' @importFrom dplyr distinct mutate bind_rows select rowwise left_join
+#' @importFrom dplyr distinct mutate bind_rows select rowwise left_join row_number across
 #' @importFrom stats setNames
 #'
 #' @return A tibble containing precursor SMILES, product SMILES, list of sequential transformations, product ID#, exact product mass, calculated logP values, and predicted positive/negative fragment m/z for organophosphate ester products.

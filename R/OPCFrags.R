@@ -80,7 +80,7 @@ OPCproducts.Frag<-function(smilesList){
 #' @importFrom tibble tibble
 #' @importFrom magrittr %>%
 #' @importFrom stats na.exclude
-#' @importFrom dplyr bind_rows filter
+#' @importFrom dplyr bind_rows filter last
 #'
 #' @return Tibble containing fragment SMILES, list of sequential fragmentation reactions, and saved skipCheck strings.
 recursive.Frag<-function(SMI, prods, funGroups, rxnList, rxnSave, skipCheck){

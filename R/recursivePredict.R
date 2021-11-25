@@ -10,7 +10,7 @@
 #'
 #' @importFrom tibble tibble
 #' @importFrom stats na.exclude
-#' @importFrom dplyr filter bind_rows
+#' @importFrom dplyr filter bind_rows last
 #'
 #' @return Tibble containing product SMILES, list of sequential reactions for each product, and saved skipCheck strings.
 recursive.Predict<-function(SMI, prods, funGroups, rxnList, rxnSave, savePoint, skipCheck){

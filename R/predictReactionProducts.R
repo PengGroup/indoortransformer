@@ -68,7 +68,7 @@ predict.Product<-function(cmpd, grp, rxnList, rxnSave, savePoint){
 #' @importFrom magrittr %>%
 #' @importFrom ChemmineR smiles2sdf atomblock bondblock sdf2smiles
 #' @importFrom tidyr unnest
-#' @importFrom dplyr distinct group_by filter ungroup
+#' @importFrom dplyr distinct group_by filter ungroup row_number
 #' @importFrom stringr str_replace
 #'
 #' @return A character vector of length one containing a SMILES string.
@@ -127,7 +127,7 @@ predict.Oxi<-function(rxnSite){
 #' @importFrom magrittr %>%
 #' @importFrom ChemmineR smiles2sdf atomblock bondblock sdf2smiles
 #' @importFrom tidyr unnest
-#' @importFrom dplyr distinct filter bind_rows mutate if_else rowwise select
+#' @importFrom dplyr distinct filter bind_rows mutate if_else rowwise select lag n last
 #' @importFrom tibble rownames_to_column rowid_to_column column_to_rownames
 #' @importFrom stringr str_extract
 #'
@@ -164,9 +164,8 @@ predict.Hydrolysis<-function(rxnSite){
     atomNeg <- atomTest
     atomCheck<-keepBonds[,1:2]
 
-    atomTest<-atomCheck %>%
-      unlist() %>%
-      .data[-which(unlist(keepBonds[,1:2]) %in% atomTest)]
+    atomTest_temp<-unlist(atomCheck)
+    atomTest<-atomTest_temp[-which(unlist(keepBonds[,1:2]) %in% atomTest)]
 
     cleaveProd1_bonds<-bind_rows(cleaveProd1_bonds, keepBonds)
   }
@@ -255,9 +254,8 @@ predict.Hydrolysis<-function(rxnSite){
     atomNeg <- atomTest
     atomCheck<-keepBonds[,1:2]
 
-    atomTest<-atomCheck %>%
-      unlist() %>%
-      .data[-which(unlist(keepBonds[,1:2]) %in% atomTest)]
+    atomTest_temp<-unlist(atomCheck)
+    atomTest<-atomTest_temp[-which(unlist(keepBonds[,1:2]) %in% atomTest)]
 
     cleaveProd2_bonds<-bind_rows(cleaveProd2_bonds, keepBonds)
   }
@@ -321,7 +319,7 @@ predict.Hydrolysis<-function(rxnSite){
 #' @importFrom magrittr %>%
 #' @importFrom ChemmineR smiles2sdf atomblock bondblock sdf2smiles
 #' @importFrom tidyr unnest
-#' @importFrom dplyr distinct filter bind_rows mutate if_else rowwise select
+#' @importFrom dplyr distinct filter bind_rows mutate if_else rowwise select lag n last
 #' @importFrom tibble rownames_to_column rowid_to_column column_to_rownames
 #' @importFrom stringr str_extract
 #'
@@ -359,9 +357,8 @@ predict.Ozonolysis<-function(rxnSite){
     atomNeg <- atomTest
     atomCheck<-keepBonds[,1:2]
 
-    atomTest<-atomCheck %>%
-      unlist() %>%
-      .data[-which(unlist(keepBonds[,1:2]) %in% atomTest)]
+    atomTest_temp<-unlist(atomCheck)
+    atomTest<-atomTest_temp[-which(unlist(keepBonds[,1:2]) %in% atomTest)]
 
     cleaveProd1_bonds<-bind_rows(cleaveProd1_bonds, keepBonds)
   }
@@ -432,9 +429,8 @@ predict.Ozonolysis<-function(rxnSite){
     atomNeg <- atomTest
     atomCheck<-keepBonds[,1:2]
 
-    atomTest<-atomCheck %>%
-      unlist() %>%
-      .data[-which(unlist(keepBonds[,1:2]) %in% atomTest)]
+    atomTest_temp<-unlist(atomCheck)
+    atomTest<-atomTest_temp[-which(unlist(keepBonds[,1:2]) %in% atomTest)]
 
     cleaveProd2_bonds<-bind_rows(cleaveProd2_bonds, keepBonds)
   }
