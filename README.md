@@ -8,8 +8,8 @@
 
 The *indoortransformer* package is designed to extend the functionality
 of existing commercial chemical databases by predicting likely indoor
-transformation products. Build 0.9.0 is currently designed for use only
-with organophosphorus compounds (OPCs).
+transformation products. The current build is designed to be used only
+for organophosphorus compounds (OPCs).
 
 ## Installation
 
@@ -49,20 +49,21 @@ package, you may need to update/re-install Java on your computer.
 #   error: JAVA_HOME cannot be determined from the Registry
 ```
 
-[Download the appropriate version of Java for your system
-here](https://www.java.com/en/download/manual.jsp). You may need to
-install both offline versions if you’re using a Windows device. You will
-then need to set “JAVA\_HOME” to the directory on your computer which
-contains the file “jvm.dll”:
+[Download the appropriate version of the Java SDK for your system
+here](https://www.oracle.com/java/technologies/downloads/). Close and
+reopen R. You will then need to set “JAVA\_HOME” to the directory on
+your computer which contains the file “jvm.dll”.
 
 ``` r
-# Default file path (32-bit installation)
-Sys.setenv(JAVA_HOME = "C:\\Program Files (x86)\\Java\\jre1.8.0_311\\bin\\client")
+# Example file path:
+Sys.setenv(JAVA_HOME = 'C:\\Program Files\\Java\\jdk-17.0.1\\bin\\server')
+```
 
-# Default file path (64-bit installation)
-Sys.setenv(JAVA_HOME = "C:\\Program Files\\Java\\jre1.8.0_311\\bin\\server")
+If you are still unable to install indoortransformer, use the following
+instead, then try to install indoortransformer again.
 
-options(devtools.install.args = "--no-multiarch")
+``` r
+Sys.setenv(JAVA_HOME = '')
 ```
 
 ## Example
@@ -73,5 +74,6 @@ example:
 
 ``` r
 x <- c("CO[P](=S)(OC)Oc1ccc(cc1)[S](=O)(=O)N(C)C","CO[P](=O)(OC)OC=C(Cl)Cl")
-trans.Products(x)
+y <- trans.Products(x)'
+View(y)
 ```
