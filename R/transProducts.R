@@ -44,7 +44,7 @@ trans.Products<-function(smilesList){
                   "out of",
                   length(smilesList),
                   "seed compounds complete.  There were",
-                  nrow(productsNew),
+                  nrow(productsNew)+1,
                   "products predicted for this compound.", sep = " "))
 
       prodTable_output<-prodTable_output %>%

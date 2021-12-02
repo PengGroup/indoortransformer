@@ -49,13 +49,13 @@ OPCproducts.Frag<-function(smilesList){
         )
 
       fragTable_temp<-tibble(prodSMILES = smilesList[i], mz_pos = list(unlist(fragNew$mz_pos[!is.na(fragNew$mz_pos)])), mz_neg = list(unlist(fragNew$mz_neg[!is.na(fragNew$mz_neg)])))
-
-      print(paste0("Fragments predicted for ",
-                   i,
-                   " out of ",
-                   length(smilesList),
-                   " transformation products."))
-
+      if(i%%10 == 0){
+        print(paste0("Fragments predicted for ",
+                     i,
+                     " out of ",
+                     length(smilesList),
+                     " transformation products."))
+      }
       fragTable_output<-bind_rows(fragTable_output, fragTable_temp)
     }
   }
