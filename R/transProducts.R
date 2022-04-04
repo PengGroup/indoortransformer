@@ -57,17 +57,18 @@ trans.Products<-function(smilesList){
     print("There were no products predicted for the input compounds.")
   }else{
     prodTable_output <- prodTable_output %>%
+      distinct(prodSMILES, .keep_all = TRUE)
       mutate(prodID = row_number()) %>%
-      rowwise() #%>%
-#      mutate(MW = rcdk::get.exact.mass(rcdk::parse.smiles(prodSMILES)[[1]]), xlogP = rcdk::get.xlogp(rcdk::parse.smiles(prodSMILES)[[1]]))
+      rowwise() %>%
+      mutate(MW = rcdk::get.exact.mass(rcdk::parse.smiles(prodSMILES)[[1]]), xlogP = rcdk::get.xlogp(rcdk::parse.smiles(prodSMILES)[[1]]), formula = rcdk::get.mol2formula(rcdk::parse.smiles(prodSMILES)[[1]])@mass)
   }
 
   fragments<-OPCproducts.Frag(prodTable_output$prodSMILES)
   prodTable_output <- prodTable_output %>%
     left_join(fragments, by = "prodSMILES") %>%
     rowwise() %>%
-    mutate(across(c(Reactions, mz_pos, mz_neg), ~paste(unlist(.), collapse = ','))) #%>%
-#    setNames(c("Precursor", "Reactions", "Product", "Product_ID", "MW", "xlogP", "Pos_Frag_mz", "Neg_Frag_mz"))
+    mutate(across(c(Reactions, mz_pos, mz_neg), ~paste(unlist(.), collapse = ','))) %>%
+    setNames(c("Precursor", "Reactions", "Product", "Product_ID", "MW", "xlogP", "Formula", "Pos_Frag_mz", "Neg_Frag_mz"))
 
   return(prodTable_output)
 }
