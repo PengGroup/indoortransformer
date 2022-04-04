@@ -242,7 +242,7 @@ predict.Hydrolysis<-function(rxnSite){
       filter(.data$C1 %in% atomTest | .data$C2 %in% atomTest) %>%
       filter(!(.data$C1 %in% atomNeg | .data$C2 %in% atomNeg))
 
-    if(is.null(cleaveProd1_bonds)==FALSE){
+    if(is.null(cleaveProd2_bonds)==FALSE){
       keepBonds<-keepBonds %>%
         filter(!(.data$C1 %in% c(rxnSite$Oatom, rxnSite$Patom) & .data$C2 %in% c(rxnSite$Oatom, rxnSite$Patom))) #Do not store the ester bond itself. (Required for alkenes which are inside ring groups. Otherwise the 'while loop' will continue indefinitely.)
     }
