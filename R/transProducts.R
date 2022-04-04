@@ -57,7 +57,6 @@ trans.Products<-function(smilesList){
     print("There were no products predicted for the input compounds.")
   }else{
     prodTable_output <- prodTable_output %>%
-      distinct(prodSMILES, .keep_all = TRUE)
       mutate(prodID = row_number()) %>%
       rowwise() %>%
       mutate(MW = rcdk::get.exact.mass(rcdk::parse.smiles(prodSMILES)[[1]]), xlogP = rcdk::get.xlogp(rcdk::parse.smiles(prodSMILES)[[1]]), formula = rcdk::get.mol2formula(rcdk::parse.smiles(prodSMILES)[[1]])@mass)
