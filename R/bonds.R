@@ -64,7 +64,7 @@ findBonds<-function(smiles, targetGroup) { #Function to find atom and bond row I
   atomTibble<-as.data.frame(atomTable) %>%  #"as.data.frame()" is required because the atomtable list items are stored as arrays
     rownames_to_column(var="atoms") %>% #Extracts the atom names from the SDF Atoms block table row names and puts them into their own column (presently in "C_1" format)
     as_tibble() %>%
-    transmute(atoms = str_extract(.data$atoms,"[:alpha:]"), atomID = c(1:length(.data$atoms))) %>% #"[:alpha:]" is a REGEX command which extracts only letters from a given string, in this case atom names ("C", "P", etc.)
+    transmute(atoms = str_extract(.data$atoms,"[^_]+"), atomID = c(1:length(.data$atoms))) %>% #"[^_]+" is a REGEX command which extracts all the characters in a string up to and excluding the first instance of an underscore.
     filter(.data$atomID %in% atomRows)
 
   bondTibble<-bondblock(sdfList[[1]]) %>%
