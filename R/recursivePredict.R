@@ -28,7 +28,7 @@ recursive.Predict<-function(SMI, prods, funGroups, rxnList, rxnSave, savePoint, 
     prods_Cleave3 <- tibble(Reactions=NULL, prodSMILES=NULL, skipCheck=NULL)
 
     for(j in 1:length(rxnGroups)){
-print(j)
+
       prod_new<-predict.Product(SMI, rxnGroups[j], rxnList, rxnSave, savePoint) #'predict.Product' should return a multi-row tibble for cleavage reactions, and a one-row tibble for all other reactions
       if(is.null(prod_new)){next}
 
