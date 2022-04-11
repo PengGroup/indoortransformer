@@ -35,7 +35,16 @@ predict.Product<-function(cmpd, grp, rxnList, rxnSave, savePoint){
         product_Ozonolysis<-predict.Ozonolysis(rxnSite_IDs)
         product_SecOzon<-predict.SecOzon(rxnSite_IDs)
         product<-c(product_Ozonolysis, product_SecOzon)
-        rxnSave_temp<-"Ozo"
+        if(is.null(product_Ozonolysis)){
+          rxnSave_temp<-"SecOzo"
+        }
+        if(is.null(product_SecOzon)){
+          rxnSave_temp <- "Ozo"
+        }
+        if(!is.null(product_Ozonolysis) & !is.null(product_SecOzon)){
+          rxnSave_temp <- c(rep("Ozo", times = length(product) - 1), "SecOzo")
+        }
+        #If both product_Ozonolysis and product_SecOzon are NULL, then the length of product will be < 0. This case is already accounted for below.
       }
     }
     if(savePoint == FALSE){
@@ -49,9 +58,17 @@ predict.Product<-function(cmpd, grp, rxnList, rxnSave, savePoint){
 
 
   if(length(product) > 0){
-    rxnSave_current<-unlist(rxnSave)
-    rxnSave<-list(c(rxnSave_current, rxnSave_temp))
-    productReturn<-tibble(Reactions = rxnSave, prodSMILES = product, savePoint = savecheck)
+
+    if(is.null(rxnSave)){
+      productReturn<-tibble(Reactions = rxnSave_temp, prodSMILES = product, savePoint = savecheck) %>%
+        rowwise() %>%
+        mutate(Reactions = list(Reactions))
+    }else{
+    productReturn<-tibble(ReactionsOld = rxnSave, ReactionsNew = rxnSave_temp, prodSMILES = product, savePoint = savecheck) %>%
+      rowwise() %>%
+      transmute(Reactions = list(c(unlist(ReactionsOld),ReactionsNew)), prodSMILES = prodSMILES, savePoint = savePoint)
+    }
+
   }else{
     productReturn<-NULL
   }
@@ -147,28 +164,29 @@ predict.Hydrolysis<-function(rxnSite){
   atomNeg <- rxnSite$Patom
 
   cleaveProd1_bonds<-NULL
-  # while(check == TRUE){
-  #   keepBonds<-bonds %>%
-  #     filter(.data$C1 %in% atomTest | .data$C2 %in% atomTest) %>%
-  #     filter(!(.data$C1 %in% atomNeg | .data$C2 %in% atomNeg))
-  #
-  #   if(is.null(cleaveProd1_bonds)==FALSE){
-  #     keepBonds<-keepBonds %>%
-  #       filter(!(.data$C1 %in% c(rxnSite$Oatom, rxnSite$Patom) & .data$C2 %in% c(rxnSite$Oatom, rxnSite$Patom))) #Do not store the ester bond itself. (Required for alkenes which are inside ring groups. Otherwise the 'while loop' will continue indefinitely.)
-  #   }
-  #
-  #   if(nrow(keepBonds) < 1){
-  #     check == FALSE
-  #     break
-  #   }
-  #   atomNeg <- atomTest
-  #   atomCheck<-keepBonds[,1:2]
-  #
-  #   atomTest_temp<-unlist(atomCheck)
-  #   atomTest<-atomTest_temp[-which(unlist(keepBonds[,1:2]) %in% atomTest)]
-  #
-  #   cleaveProd1_bonds<-bind_rows(cleaveProd1_bonds, keepBonds)
-  # }
+  while(check == TRUE){
+    keepBonds<-bonds %>%
+      filter(.data$C1 %in% atomTest | .data$C2 %in% atomTest) %>%
+      filter(!(.data$C1 %in% atomNeg | .data$C2 %in% atomNeg))
+
+    if(is.null(cleaveProd1_bonds)==FALSE){
+      keepBonds<-keepBonds %>%
+        filter(!(.data$C1 %in% c(rxnSite$Oatom, rxnSite$Patom) & .data$C2 %in% c(rxnSite$Oatom, rxnSite$Patom))) #Do not store the ester bond itself. (Required for alkenes which are inside ring groups. Otherwise the 'while loop' will continue indefinitely.)
+    }
+
+    if(nrow(keepBonds) < 1){
+      check == FALSE
+      break
+    }
+    atomNeg <- atomTest
+    atomCheck<-keepBonds[,1:2]
+
+    atomTest_temp<-unlist(atomCheck)
+    atomTest<-atomTest_temp[-which(unlist(keepBonds[,1:2]) %in% atomTest)]
+
+    cleaveProd1_bonds<-bind_rows(cleaveProd1_bonds, keepBonds)
+  }
+
 
   if(is.null(cleaveProd1_bonds) == FALSE){
 
@@ -178,57 +196,60 @@ predict.Hydrolysis<-function(rxnSite){
       rowid_to_column() %>%
       filter(.data$rowid %in% cleaveProd1_bonds$C1 | .data$rowid %in% cleaveProd1_bonds$C2)
 
-    if(length(which(unlist(cleaveProd1_bonds[,c(1:2)]) %in% rxnSite$Patom)) == 3){ #Accounts for the possibility of cyclic phosphate compounds. Without this check, the product might end up with a P-H group.
+    if(any(str_detect(cleaveProd1_atoms$rowname, "P"))){ #Only keep this hydrolysis product if it contains another phosphorus atom somewhere
+
+      if(length(which(unlist(cleaveProd1_bonds[,c(1:2)]) %in% rxnSite$Patom)) == 3){ #Accounts for the possibility of cyclic phosphate compounds. Without this check, the product might end up with a P-H group.
+        cleaveProd1_atoms<-cleaveProd1_atoms %>%
+          bind_rows(newAtom_empty) %>%
+          mutate(rowid_old = if_else(is.na(.data$rowid), as.integer(lag(.data$rowid)+1), .data$rowid))  %>%
+          mutate(rowid = seq(from=1, to=n(), by=1)) %>%
+          mutate(rowname = if_else(is.na(.data$rowname), paste0("O_", .data$rowid), .data$rowname)) %>%
+          mutate(rowname = paste0(str_extract(.data$rowname, "[^_]+"), "_", .data$rowid))
+      }else{
+        cleaveProd1_atoms<-cleaveProd1_atoms %>%
+          mutate(rowid_old = if_else(is.na(.data$rowid), as.integer(lag(.data$rowid)+1), .data$rowid))  %>%
+          mutate(rowid = seq(from=1, to=n(), by=1)) %>%
+          mutate(rowname = paste0(str_extract(.data$rowname, "[^_]+"), "_", .data$rowid))
+      }
+
+
+      if(length(which(unlist(cleaveProd1_bonds[,c(1:2)]) %in% rxnSite$Patom)) == 3){ #Accounts for the possibility of cyclic phosphate compounds. Without this check, the product might end up with a P-H group.
+        newBond_empty<-setNames(c(rep(0, ncol(bonds))), colnames(bonds))
+        cleaveProd1_bonds<-cleaveProd1_bonds %>%
+          rowid_to_column %>%
+          rowwise() %>%
+          mutate(C1 = if_else(.data$C1 %in% cleaveProd1_atoms$rowid_old, cleaveProd1_atoms$rowid[which(.data$C1 == cleaveProd1_atoms$rowid_old)], 0)) %>%
+          mutate(C2 = if_else(.data$C2 %in% cleaveProd1_atoms$rowid_old, cleaveProd1_atoms$rowid[which(.data$C2 == cleaveProd1_atoms$rowid_old)], 0)) %>%
+          column_to_rownames(var = "rowid") %>%
+          bind_rows(newBond_empty) %>%
+          mutate(
+            C1 = replace(.data$C1, list = which(.data$C1 == 0), values = cleaveProd1_atoms$rowid[which(cleaveProd1_atoms$rowid_old == rxnSite$Patom)]),
+            C2 = replace(.data$C2, list = which(.data$C2 == 0), values = last(cleaveProd1_atoms$rowid)),
+            C3 = replace(.data$C3, list = which(.data$C3 == 0), values = 1)
+          ) %>%
+          as.matrix()
+      }else{
+        cleaveProd1_bonds<-cleaveProd1_bonds %>%
+          rowid_to_column %>%
+          rowwise() %>%
+          mutate(C1 = if_else(.data$C1 %in% cleaveProd1_atoms$rowid_old, cleaveProd1_atoms$rowid[which(.data$C1 == cleaveProd1_atoms$rowid_old)], 0)) %>%
+          mutate(C2 = if_else(.data$C2 %in% cleaveProd1_atoms$rowid_old, cleaveProd1_atoms$rowid[which(.data$C2 == cleaveProd1_atoms$rowid_old)], 0)) %>%
+          column_to_rownames(var = "rowid") %>%
+          as.matrix()
+      }
+
       cleaveProd1_atoms<-cleaveProd1_atoms %>%
-        bind_rows(newAtom_empty) %>%
-        mutate(rowid_old = if_else(is.na(.data$rowid), as.integer(lag(.data$rowid)+1), .data$rowid))  %>%
-        mutate(rowid = seq(from=1, to=n(), by=1)) %>%
-        mutate(rowname = if_else(is.na(.data$rowname), paste0("O_", .data$rowid), .data$rowname)) %>%
-        mutate(rowname = paste0(str_extract(.data$rowname, "[^_]+"), "_", .data$rowid))
-    }else{
-      cleaveProd1_atoms<-cleaveProd1_atoms %>%
-        mutate(rowid_old = if_else(is.na(.data$rowid), as.integer(lag(.data$rowid)+1), .data$rowid))  %>%
-        mutate(rowid = seq(from=1, to=n(), by=1)) %>%
-        mutate(rowname = paste0(str_extract(.data$rowname, "[^_]+"), "_", .data$rowid))
-    }
-
-
-    if(length(which(unlist(cleaveProd1_bonds[,c(1:2)]) %in% rxnSite$Patom)) == 3){ #Accounts for the possibility of cyclic phosphate compounds. Without this check, the product might end up with a P-H group.
-      newBond_empty<-setNames(c(rep(0, ncol(bonds))), colnames(bonds))
-      cleaveProd1_bonds<-cleaveProd1_bonds %>%
-        rowid_to_column %>%
-        rowwise() %>%
-        mutate(C1 = if_else(.data$C1 %in% cleaveProd1_atoms$rowid_old, cleaveProd1_atoms$rowid[which(.data$C1 == cleaveProd1_atoms$rowid_old)], 0)) %>%
-        mutate(C2 = if_else(.data$C2 %in% cleaveProd1_atoms$rowid_old, cleaveProd1_atoms$rowid[which(.data$C2 == cleaveProd1_atoms$rowid_old)], 0)) %>%
-        column_to_rownames(var = "rowid") %>%
-        bind_rows(newBond_empty) %>%
-        mutate(
-          C1 = replace(.data$C1, list = which(.data$C1 == 0), values = cleaveProd1_atoms$rowid[which(cleaveProd1_atoms$rowid_old == rxnSite$Patom)]),
-          C2 = replace(.data$C2, list = which(.data$C2 == 0), values = last(cleaveProd1_atoms$rowid)),
-          C3 = replace(.data$C3, list = which(.data$C3 == 0), values = 1)
-        ) %>%
+        select(-c(.data$rowid, .data$rowid_old)) %>%
+        column_to_rownames(var = "rowname") %>%
         as.matrix()
-    }else{
-      cleaveProd1_bonds<-cleaveProd1_bonds %>%
-        rowid_to_column %>%
-        rowwise() %>%
-        mutate(C1 = if_else(.data$C1 %in% cleaveProd1_atoms$rowid_old, cleaveProd1_atoms$rowid[which(.data$C1 == cleaveProd1_atoms$rowid_old)], 0)) %>%
-        mutate(C2 = if_else(.data$C2 %in% cleaveProd1_atoms$rowid_old, cleaveProd1_atoms$rowid[which(.data$C2 == cleaveProd1_atoms$rowid_old)], 0)) %>%
-        column_to_rownames(var = "rowid") %>%
-        as.matrix()
-    }
-
-    cleaveProd1_atoms<-cleaveProd1_atoms %>%
-      select(-c(.data$rowid, .data$rowid_old)) %>%
-      column_to_rownames(var = "rowname") %>%
-      as.matrix()
 
 
-    cleaveProd1<-list(cleaveProd1_atoms, cleaveProd1_bonds)
-    prod1_SDF<-makeSDF(cleaveProd1, currentSDF)
-    prod1_SMI<-sdf2smiles(prod1_SDF)
-    prod1_SMI<-prod1_SMI@smilist[[1]]
+      cleaveProd1<-list(cleaveProd1_atoms, cleaveProd1_bonds)
+      prod1_SDF<-makeSDF(cleaveProd1, currentSDF)
+      prod1_SMI<-sdf2smiles(prod1_SDF)
+      prod1_SMI<-prod1_SMI@smilist[[1]]
 
+    }else{prod1_SMI<-NULL}
   }else{prod1_SMI<-NULL}
 
 
@@ -317,7 +338,7 @@ predict.Hydrolysis<-function(rxnSite){
 #'
 #' @importFrom rlang .data
 #' @importFrom magrittr %>%
-#' @importFrom ChemmineR smiles2sdf atomblock bondblock sdf2smiles
+#' @importFrom ChemmineR smiles2sdf atomblock bondblock sdf2smiles rings
 #' @importFrom tidyr unnest
 #' @importFrom dplyr distinct filter bind_rows mutate if_else rowwise select lag n last
 #' @importFrom tibble rownames_to_column rowid_to_column column_to_rownames
@@ -334,157 +355,216 @@ predict.Ozonolysis<-function(rxnSite){
   atoms<-as.data.frame(atomblock(currentSDF[[1]]))
   bonds<-as.data.frame(bondblock(currentSDF[[1]]))
 
-  check <- TRUE
-  atomTest <- rxnSite$Catom[1]
-  atomNeg <- rxnSite$Catom[2]
+  ringCheck <- FALSE
+  alkene.row <- NULL
+  if(length(rings(currentSDF[[1]])) > 0){
+    ringList <- rings(currentSDF[[1]])
+    alkene.row <- bonds[which(bonds$C1 %in% rxnSite$Catom & bonds$C2 %in% rxnSite$Catom),] #Determines which row of the bonds table contains the (current) alkene bond
 
-  cleaveProd1_bonds<-NULL
-  while(check == TRUE){
-    keepBonds<-bonds %>%
-      filter(.data$C1 %in% atomTest | .data$C2 %in% atomTest) %>% #Keep any bonds involving the currently targeted atom
-      filter(!(.data$C1 %in% atomNeg | .data$C2 %in% atomNeg)) #Remove any bonds involving the currently rejected atom
+    for(i in 1:length(ringList)){
+      if(sum(str_detect(ringList[[i]], as.character(alkene.row$C1)) + str_detect(ringList[[i]], as.character(alkene.row$C2))) == 2){ #Checks for rings which contain both carbon atoms from the alkene bond
+        ringCheck <- TRUE
+        break
+      }else{next}
+    }
+  }
+
+  prodSMI <- NULL
+  if(ringCheck == FALSE){
+
+    check <- TRUE
+    atomTest <- rxnSite$Catom[1]
+    atomNeg <- rxnSite$Catom[2]
+
+    cleaveProd1_bonds<-NULL
+    while(check == TRUE){
+      keepBonds<-bonds %>%
+        filter(.data$C1 %in% atomTest | .data$C2 %in% atomTest) %>% #Keep any bonds involving the currently targeted atom
+        filter(!(.data$C1 %in% atomNeg | .data$C2 %in% atomNeg)) #Remove any bonds involving the currently rejected atom
+
+      if(is.null(cleaveProd1_bonds)==FALSE){
+        keepBonds<-keepBonds %>%
+          filter(!(.data$C1 %in% c(rxnSite$Catom[1], rxnSite$Catom[2]) & .data$C2 %in% c(rxnSite$Catom[1], rxnSite$Catom[2]))) #Do not store the double bond itself. (Required for alkenes which are inside ring groups. Otherwise the 'while loop' will continue indefinitely.)
+      }
+
+      if(nrow(keepBonds) < 1){
+        check == FALSE
+        break
+      }
+
+      atomNeg <- atomTest
+      atomCheck<-keepBonds[,1:2]
+
+      atomTest_temp<-unlist(atomCheck)
+      atomTest<-atomTest_temp[-which(unlist(keepBonds[,1:2]) %in% atomTest)]
+
+      cleaveProd1_bonds<-bind_rows(cleaveProd1_bonds, keepBonds)
+    }
 
     if(is.null(cleaveProd1_bonds)==FALSE){
-      keepBonds<-keepBonds %>%
-        filter(!(.data$C1 %in% c(rxnSite$Catom[1], rxnSite$Catom[2]) & .data$C2 %in% c(rxnSite$Catom[1], rxnSite$Catom[2]))) #Do not store the double bond itself. (Required for alkenes which are inside ring groups. Otherwise the 'while loop' will continue indefinitely.)
+      newAtom_empty<-setNames(c(rep(0, ncol(atoms))), colnames(atoms))
+      cleaveProd1_atoms<-atoms %>%
+        rownames_to_column() %>%
+        rowid_to_column() %>%
+        filter(.data$rowid %in% cleaveProd1_bonds$C1 | .data$rowid %in% cleaveProd1_bonds$C2) %>%
+        bind_rows(newAtom_empty) %>%
+        mutate(rowid_old = if_else(is.na(.data$rowid), as.integer(lag(.data$rowid)+1), .data$rowid))  %>%
+        mutate(rowid = seq(from=1, to=n(), by=1)) %>%
+        mutate(rowname = if_else(is.na(.data$rowname), paste0("O_", .data$rowid), .data$rowname)) %>%
+        mutate(rowname = paste0(str_extract(.data$rowname, "[^_]+"), "_", .data$rowid))
+
+      if(any(str_detect(cleaveProd1_atoms$rowname, "P"))){
+        #Delete both copies of this 'if' statement if you want to keep both sides of the ozonolysis reaction, not just the side containing a phosphorus atom.
+
+        newBond_empty<-setNames(c(rep(0, ncol(bonds))), colnames(bonds))
+        cleaveProd1_bonds<-cleaveProd1_bonds %>%
+          rowid_to_column %>%
+          rowwise() %>%
+          mutate(C1 = if_else(.data$C1 %in% cleaveProd1_atoms$rowid_old, cleaveProd1_atoms$rowid[which(.data$C1 == cleaveProd1_atoms$rowid_old)], 0)) %>%
+          mutate(C2 = if_else(.data$C2 %in% cleaveProd1_atoms$rowid_old, cleaveProd1_atoms$rowid[which(.data$C2 == cleaveProd1_atoms$rowid_old)], 0)) %>%
+          column_to_rownames(var = "rowid") %>%
+          bind_rows(newBond_empty) %>%
+          mutate(
+            C1 = replace(.data$C1, list = which(.data$C1 == 0), values = cleaveProd1_atoms$rowid[which(cleaveProd1_atoms$rowid_old == rxnSite$Catom[1])]),
+            C2 = replace(.data$C2, list = which(.data$C2 == 0), values = last(cleaveProd1_atoms$rowid)),
+            C3 = replace(.data$C3, list = which(.data$C3 == 0), values = 2)
+          ) %>%
+          as.matrix()
+
+        cleaveProd1_atoms<-cleaveProd1_atoms %>%
+          select(-c(.data$rowid, .data$rowid_old)) %>%
+          column_to_rownames(var = "rowname") %>%
+          as.matrix()
+
+        cleaveProd1<-list(cleaveProd1_atoms, cleaveProd1_bonds)
+        prod1_SDF<-makeSDF(cleaveProd1, currentSDF)
+        prod1_SMI<-sdf2smiles(prod1_SDF)
+        prod1_SMI<-prod1_SMI@smilist[[1]]
+      }else{prod1_SMI<-NULL}
+    }else{prod1_SMI<-NULL}
+
+
+
+
+    ##Now do the same thing for the other side of the alkene bond
+    check <- TRUE
+    atomTest <- rxnSite$Catom[2]
+    atomNeg <- rxnSite$Catom[1]
+
+    cleaveProd2_bonds<-NULL
+    while(check == TRUE){
+      keepBonds<-bonds %>%
+        filter(.data$C1 %in% atomTest | .data$C2 %in% atomTest) %>% #Keep any bonds involving the currently targeted atom
+        filter(!(.data$C1 %in% atomNeg | .data$C2 %in% atomNeg)) #Remove any bonds involving the currently rejected atom
+
+      if(is.null(cleaveProd2_bonds)==FALSE){
+        keepBonds<-keepBonds %>%
+          filter(!(.data$C1 %in% c(rxnSite$Catom[1], rxnSite$Catom[2]) & .data$C2 %in% c(rxnSite$Catom[1], rxnSite$Catom[2]))) #Do not store the double bond itself. (Required for alkenes which are inside ring groups. Otherwise the 'while loop' will continue indefinitely.)
+      }
+
+      if(nrow(keepBonds) < 1){
+        check == FALSE
+        break
+      }
+      atomNeg <- atomTest
+      atomCheck<-keepBonds[,1:2]
+
+      atomTest_temp<-unlist(atomCheck)
+      atomTest<-atomTest_temp[-which(unlist(keepBonds[,1:2]) %in% atomTest)]
+
+      cleaveProd2_bonds<-bind_rows(cleaveProd2_bonds, keepBonds)
     }
-
-    if(nrow(keepBonds) < 1){
-      check == FALSE
-      break
-    }
-
-    atomNeg <- atomTest
-    atomCheck<-keepBonds[,1:2]
-
-    atomTest_temp<-unlist(atomCheck)
-    atomTest<-atomTest_temp[-which(unlist(keepBonds[,1:2]) %in% atomTest)]
-
-    cleaveProd1_bonds<-bind_rows(cleaveProd1_bonds, keepBonds)
-  }
-
-  if(is.null(cleaveProd1_bonds)==FALSE){
-    newAtom_empty<-setNames(c(rep(0, ncol(atoms))), colnames(atoms))
-    cleaveProd1_atoms<-atoms %>%
-      rownames_to_column() %>%
-      rowid_to_column() %>%
-      filter(.data$rowid %in% cleaveProd1_bonds$C1 | .data$rowid %in% cleaveProd1_bonds$C2) %>%
-      bind_rows(newAtom_empty) %>%
-      mutate(rowid_old = if_else(is.na(.data$rowid), as.integer(lag(.data$rowid)+1), .data$rowid))  %>%
-      mutate(rowid = seq(from=1, to=n(), by=1)) %>%
-      mutate(rowname = if_else(is.na(.data$rowname), paste0("O_", .data$rowid), .data$rowname)) %>%
-      mutate(rowname = paste0(str_extract(.data$rowname, "[^_]+"), "_", .data$rowid))
-
-    if(any(str_detect(cleaveProd1_atoms$rowname, "P"))){prod1_SMI<-NULL}else{
-      #Delete both copies of this 'if' statement if you want to keep both sides of the ozonolysis reaction, not just the side containing a phosphorus atom.
-
-      newBond_empty<-setNames(c(rep(0, ncol(bonds))), colnames(bonds))
-      cleaveProd1_bonds<-cleaveProd1_bonds %>%
-        rowid_to_column %>%
-        rowwise() %>%
-        mutate(C1 = if_else(.data$C1 %in% cleaveProd1_atoms$rowid_old, cleaveProd1_atoms$rowid[which(.data$C1 == cleaveProd1_atoms$rowid_old)], 0)) %>%
-        mutate(C2 = if_else(.data$C2 %in% cleaveProd1_atoms$rowid_old, cleaveProd1_atoms$rowid[which(.data$C2 == cleaveProd1_atoms$rowid_old)], 0)) %>%
-        column_to_rownames(var = "rowid") %>%
-        bind_rows(newBond_empty) %>%
-        mutate(
-          C1 = replace(.data$C1, list = which(.data$C1 == 0), values = cleaveProd1_atoms$rowid[which(cleaveProd1_atoms$rowid_old == rxnSite$Catom[1])]),
-          C2 = replace(.data$C2, list = which(.data$C2 == 0), values = last(cleaveProd1_atoms$rowid)),
-          C3 = replace(.data$C3, list = which(.data$C3 == 0), values = 2)
-        ) %>%
-        as.matrix()
-
-      cleaveProd1_atoms<-cleaveProd1_atoms %>%
-        select(-c(.data$rowid, .data$rowid_old)) %>%
-        column_to_rownames(var = "rowname") %>%
-        as.matrix()
-
-      cleaveProd1<-list(cleaveProd1_atoms, cleaveProd1_bonds)
-      prod1_SDF<-makeSDF(cleaveProd1, currentSDF)
-      prod1_SMI<-sdf2smiles(prod1_SDF)
-      prod1_SMI<-prod1_SMI@smilist[[1]]
-    }
-  }else{prod1_SMI<-NULL}
-
-
-
-
-  ##Now do the same thing for the other side of the alkene bond
-  check <- TRUE
-  atomTest <- rxnSite$Catom[2]
-  atomNeg <- rxnSite$Catom[1]
-
-  cleaveProd2_bonds<-NULL
-  while(check == TRUE){
-    keepBonds<-bonds %>%
-      filter(.data$C1 %in% atomTest | .data$C2 %in% atomTest) %>% #Keep any bonds involving the currently targeted atom
-      filter(!(.data$C1 %in% atomNeg | .data$C2 %in% atomNeg)) #Remove any bonds involving the currently rejected atom
 
     if(is.null(cleaveProd2_bonds)==FALSE){
-      keepBonds<-keepBonds %>%
-        filter(!(.data$C1 %in% c(rxnSite$Catom[1], rxnSite$Catom[2]) & .data$C2 %in% c(rxnSite$Catom[1], rxnSite$Catom[2]))) #Do not store the double bond itself. (Required for alkenes which are inside ring groups. Otherwise the 'while loop' will continue indefinitely.)
-    }
+      newAtom_empty<-setNames(c(rep(0, ncol(atoms))), colnames(atoms))
+      cleaveProd2_atoms<-atoms %>%
+        rownames_to_column() %>%
+        rowid_to_column() %>%
+        filter(.data$rowid %in% cleaveProd2_bonds$C1 | .data$rowid %in% cleaveProd2_bonds$C2) %>%
+        bind_rows(newAtom_empty) %>%
+        mutate(rowid_old = if_else(is.na(.data$rowid), as.integer(lag(.data$rowid)+1), .data$rowid))  %>%
+        mutate(rowid = seq(from=1, to=n(), by=1)) %>%
+        mutate(rowname = if_else(is.na(.data$rowname), paste0("O_", .data$rowid), .data$rowname)) %>%
+        mutate(rowname = paste0(str_extract(.data$rowname, "[^_]+"), "_", .data$rowid))
 
-    if(nrow(keepBonds) < 1){
-      check == FALSE
-      break
-    }
-    atomNeg <- atomTest
-    atomCheck<-keepBonds[,1:2]
+      if(any(str_detect(cleaveProd2_atoms$rowname, "P"))){
+        #Delete both copies of this 'if' statement if you want to keep both sides of the ozonolysis reaction, not just the side containing a phosphorus atom.
 
-    atomTest_temp<-unlist(atomCheck)
-    atomTest<-atomTest_temp[-which(unlist(keepBonds[,1:2]) %in% atomTest)]
+        newBond_empty<-setNames(c(rep(0, ncol(bonds))), colnames(bonds))
+        cleaveProd2_bonds<-cleaveProd2_bonds %>%
+          rowid_to_column %>%
+          rowwise() %>%
+          mutate(C1 = if_else(.data$C1 %in% cleaveProd2_atoms$rowid_old, cleaveProd2_atoms$rowid[which(.data$C1 == cleaveProd2_atoms$rowid_old)], 0)) %>%
+          mutate(C2 = if_else(.data$C2 %in% cleaveProd2_atoms$rowid_old, cleaveProd2_atoms$rowid[which(.data$C2 == cleaveProd2_atoms$rowid_old)], 0)) %>%
+          column_to_rownames(var = "rowid") %>%
+          bind_rows(newBond_empty) %>%
+          mutate(
+            C1 = replace(.data$C1, list = which(.data$C1 == 0), values = cleaveProd2_atoms$rowid[which(cleaveProd2_atoms$rowid_old == rxnSite$Catom[2])]),
+            C2 = replace(.data$C2, list = which(.data$C2 == 0), values = last(cleaveProd2_atoms$rowid)),
+            C3 = replace(.data$C3, list = which(.data$C3 == 0), values = 2)
+          ) %>%
+          as.data.frame() %>%
+          as.matrix()
 
-    cleaveProd2_bonds<-bind_rows(cleaveProd2_bonds, keepBonds)
+        cleaveProd2_atoms<-cleaveProd2_atoms %>%
+          select(-c(.data$rowid, .data$rowid_old)) %>%
+          column_to_rownames(var = "rowname") %>%
+          as.matrix()
+
+
+        cleaveProd2<-list(cleaveProd2_atoms, cleaveProd2_bonds)
+        prod2_SDF<-makeSDF(cleaveProd2, currentSDF)
+        prod2_SMI<-sdf2smiles(prod2_SDF)
+        prod2_SMI<-prod2_SMI@smilist[[1]]
+      }else{prod2_SMI<-NULL}
+    }else{prod2_SMI<-NULL}
+
+    prodSMI<-c(prod1_SMI, prod2_SMI)
+
+  }else{
+
+  newAtom_empty<-setNames(c(rep(0, ncol(atoms))), colnames(atoms))
+  ringProd_atoms<-atoms %>%
+    rownames_to_column() %>%
+    rowid_to_column() %>%
+    bind_rows(newAtom_empty, newAtom_empty) %>%
+    mutate(rowid_old = if_else(is.na(.data$rowid), as.integer(lag(.data$rowid, n = 2L) + 2), .data$rowid))  %>%
+    mutate(rowid = seq(from=1, to=n(), by=1)) %>%
+    mutate(rowname = if_else(is.na(.data$rowname), paste0("O_", .data$rowid), .data$rowname)) %>%
+    mutate(rowname = paste0(str_extract(.data$rowname, "[^_]+"), "_", .data$rowid))
+
+    newBond_empty<-setNames(c(rep(0, ncol(bonds))), colnames(bonds))
+    ringProd_bonds<-bonds %>%
+      rowid_to_column %>%
+      filter(rowid != as.integer(row.names(alkene.row))) %>% #alkene.row was declared during the ring checking step above
+      bind_rows(newBond_empty, newBond_empty) %>%
+      mutate(rowid = seq(from=1, to=n(), by=1)) %>%
+      column_to_rownames(var = "rowid") %>%
+      mutate(
+        C1 = replace(.data$C1, list = which(.data$C1 == 0), values = ringProd_atoms$rowid[which(ringProd_atoms$rowid_old %in% rxnSite$Catom)]),
+        C2 = replace(.data$C2, list = which(.data$C2 == 0), values = tail(ringProd_atoms$rowid, 2)),
+        C3 = replace(.data$C3, list = which(.data$C3 == 0), values = 2)
+      ) %>%
+      as.data.frame() %>%
+      as.matrix()
+
+    ringProd_atoms<-ringProd_atoms %>%
+      select(-c(.data$rowid, .data$rowid_old)) %>%
+      column_to_rownames(var = "rowname") %>%
+      as.matrix()
+
+
+    ringProd<-list(ringProd_atoms, ringProd_bonds)
+    ringProd_SDF<-makeSDF(ringProd, currentSDF)
+    ringProd_SMI<-sdf2smiles(ringProd_SDF)
+    ringProd_SMI<-ringProd_SMI@smilist[[1]]
+
+    prodSMI <- ringProd_SMI
+
   }
 
-  if(is.null(cleaveProd2_bonds)==FALSE){
-    newAtom_empty<-setNames(c(rep(0, ncol(atoms))), colnames(atoms))
-    cleaveProd2_atoms<-atoms %>%
-      rownames_to_column() %>%
-      rowid_to_column() %>%
-      filter(.data$rowid %in% cleaveProd2_bonds$C1 | .data$rowid %in% cleaveProd2_bonds$C2) %>%
-      bind_rows(newAtom_empty) %>%
-      mutate(rowid_old = if_else(is.na(.data$rowid), as.integer(lag(.data$rowid)+1), .data$rowid))  %>%
-      mutate(rowid = seq(from=1, to=n(), by=1)) %>%
-      mutate(rowname = if_else(is.na(.data$rowname), paste0("O_", .data$rowid), .data$rowname)) %>%
-      mutate(rowname = paste0(str_extract(.data$rowname, "[^_]+"), "_", .data$rowid))
-
-    if(any(str_detect(cleaveProd2_atoms$rowname, "P"))){prod2_SMI<-NULL}else{
-      #Delete both copies of this 'if' statement if you want to keep both sides of the ozonolysis reaction, not just the side containing a phosphorus atom.
-
-      newBond_empty<-setNames(c(rep(0, ncol(bonds))), colnames(bonds))
-      cleaveProd2_bonds<-cleaveProd2_bonds %>%
-        rowid_to_column %>%
-        rowwise() %>%
-        mutate(C1 = if_else(.data$C1 %in% cleaveProd2_atoms$rowid_old, cleaveProd2_atoms$rowid[which(.data$C1 == cleaveProd2_atoms$rowid_old)], 0)) %>%
-        mutate(C2 = if_else(.data$C2 %in% cleaveProd2_atoms$rowid_old, cleaveProd2_atoms$rowid[which(.data$C2 == cleaveProd2_atoms$rowid_old)], 0)) %>%
-        column_to_rownames(var = "rowid") %>%
-        bind_rows(newBond_empty) %>%
-        mutate(
-          C1 = replace(.data$C1, list = which(.data$C1 == 0), values = cleaveProd2_atoms$rowid[which(cleaveProd2_atoms$rowid_old == rxnSite$Catom[2])]),
-          C2 = replace(.data$C2, list = which(.data$C2 == 0), values = last(cleaveProd2_atoms$rowid)),
-          C3 = replace(.data$C3, list = which(.data$C3 == 0), values = 2)
-        ) %>%
-        as.data.frame() %>%
-        as.matrix()
-
-      cleaveProd2_atoms<-cleaveProd2_atoms %>%
-        select(-c(.data$rowid, .data$rowid_old)) %>%
-        column_to_rownames(var = "rowname") %>%
-        as.matrix()
-
-
-      cleaveProd2<-list(cleaveProd2_atoms, cleaveProd2_bonds)
-      prod2_SDF<-makeSDF(cleaveProd2, currentSDF)
-      prod2_SMI<-sdf2smiles(prod2_SDF)
-      prod2_SMI<-prod2_SMI@smilist[[1]]
-    }
-  }else{prod2_SMI<-NULL}
-
-
-  prodSMI<-c(prod1_SMI, prod2_SMI)
-
   return(prodSMI)
+
 }
 
 
